@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Kgadi's Kotas Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #fdf6f0; }
+    h1 { color: #d35400; }
+    input, select, button { margin: 5px 0; padding: 8px; width: 100%; }
+    .section { margin-bottom: 30px; }
+    .summary { background: #fff3e0; padding: 10px; border-radius: 5px; white-space: pre-line; }
+    .entry-list { background: #fff; padding: 10px; border-radius: 5px; margin-top: 10px; }
+    .entry-item { margin-bottom: 8px; }
+    .entry-item button { margin-left: 5px; }
+    canvas { background: #fff; border-radius: 5px; padding: 10px; }
+    #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #fdf6f0; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 999; }
+    #loginScreen input { width: 200px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="loginScreen">
+    <h2>🔐 Enter PIN to Access</h2>
+    <input type="password" id="pinInput" placeholder="Enter PIN">
+    <button onclick="checkPIN()">Login</button>
+  </div>
+
+  <h1>Kgadi's Kotas Tracker</h1>
+
+  <!-- All previous sections remain unchanged -->
+
+  <div class="section">
+    <h2>🔑 Change PIN</h2>
+    <input type="password" id="newPin" placeholder="New PIN">
+    <button onclick="changePIN()">Update PIN</button>
+  </div>
+
+  <script>
+    const today = new Date().toISOString().split('T')[0];
+    let dailyRecords = JSON.parse(localStorage.getItem('dailyRecords')) || {};
+    let itemNames = JSON.parse(localStorage.getItem('itemNames')) || [];
+    let savedPIN = localStorage.getItem('appPIN') || '1234';
+
+    if (!dailyRecords[today]) {
+      dailyRecords[today] = { purchases: [], salaries: [], sales: 0 };
+    }
+
+    function checkPIN() {
+      const input = document.getElementById('pinInput').value;
+      if (input === savedPIN) {
+        document.getElementById('loginScreen').style.display = 'none';
+      } else {
+        alert("Incorrect PIN. Try again.");
+      }
+    }
+
+    function changePIN() {
+      const newPin = document.getElementById('newPin').value;
+      if (newPin.length >= 4) {
+        localStorage.setItem('appPIN', newPin);
+        savedPIN = newPin;
+        alert("PIN updated!");
+      } else {
+        alert("PIN must be at least 4 digits.");
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('dailyRecords', JSON.stringify(dailyRecords));
+    }
+
+    function calculateProfit() {
+      const sales = parseFloat(document.getElementById('dailySales').value);
+      if (isNaN(sales)) return alert("Enter valid sales amount");
+
+      dailyRecords[today].sales = sales;
+      saveData();
+      renderEntries();
+    }
+
+    function renderEntries() {
+      const purchases = dailyRecords[today].purchases;
+      const salaries = dailyRecords[today].salaries;
+      const totalExpenses = purchases.reduce((sum, p) => sum + p.cost, 0) +
+                            salaries.reduce((sum, s) => sum + s.salary, 0);
+      const profit = dailyRecords[today].sales - totalExpenses;
+
+      let summary = `📅 Date: ${today}\nSales: R${dailyRecords[today].sales.toFixed(2)}\nExpenses: R${totalExpenses.toFixed(2)}\nProfit: R${profit.toFixed(2)}\n\n`;
+      summary += "Purchases:\n";
+      purchases.forEach(p => {
+        summary += `- ${p.name} (${p.qty}): R${p.cost.toFixed(2)}\n`;
+      });
+
+      summary += "\nSalaries:\n";
+      salaries.forEach(s => {
+        summary += `- ${s.name}: R${s.salary.toFixed(2)}\n`;
+      });
+
+      document.getElementById('summaryText').innerText = summary;
+      updateChart();
+    }
+
+    function updateChart() {
+      const labels = [];
+      const profits = [];
+
+      Object.keys(dailyRecords).sort().forEach(date => {
+        const day = dailyRecords[date];
+        const expenses = day.purchases.reduce((sum, p) => sum + p.cost, 0) +
+                         day.salaries.reduce((sum, s) => sum + s.salary, 0);
+        const profit = day.sales - expenses;
+        labels.push(date);
+        profits.push(profit.toFixed(2));
+      });
+
+      const ctx = document.getElementById('profitChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Daily Profit (R)',
+            data: profits,
+            borderColor: '#d35400',
+            backgroundColor: 'rgba(211, 84, 0, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: true }
+          },
+          scales: {
+            y: { beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    updateDropdown();
+    renderEntries();
+  </script>
+</body>
+</html>
